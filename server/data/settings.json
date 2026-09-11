@@ -1,0 +1,99 @@
+{
+  "seo": {
+    "title": "Open Doors Laundromat | So Fresh, So Clean, So You",
+    "description": "Premium laundry and garment care in Kitengela, Kisaju, Isinya and Athi River."
+  },
+  "priceGroups": [
+    {
+      "t": "Full load services",
+      "items": [
+        [
+          "Washing",
+          "600"
+        ],
+        [
+          "Drying",
+          "600"
+        ],
+        [
+          "Ironing",
+          "700"
+        ],
+        [
+          "Wash, dry & fold",
+          "1,200"
+        ],
+        [
+          "Wash, dry, iron & hang",
+          "1,700"
+        ],
+        [
+          "Excess per kilo",
+          "140"
+        ]
+      ]
+    },
+    {
+      "t": "Popular items",
+      "items": [
+        [
+          "T-shirt",
+          "200"
+        ],
+        [
+          "Shirt / blouse / skirt",
+          "200"
+        ],
+        [
+          "Trouser / dress",
+          "200"
+        ],
+        [
+          "Track suit",
+          "300"
+        ],
+        [
+          "Jacket — normal",
+          "300"
+        ],
+        [
+          "Suit — two piece",
+          "700"
+        ],
+        [
+          "log-slif",
+          "9000"
+        ]
+      ]
+    },
+    {
+      "t": "Home essentials",
+      "items": [
+        [
+          "Duvet cover",
+          "300"
+        ],
+        [
+          "Bedsheet — each",
+          "200"
+        ],
+        [
+          "Curtains per kg",
+          "300"
+        ],
+        [
+          "Pillow",
+          "200"
+        ],
+        [
+          "Towel",
+          "200"
+        ],
+        [
+          "Duvet / blanket 2kg",
+          "700"
+        ]
+      ]
+    }
+  ]
+}

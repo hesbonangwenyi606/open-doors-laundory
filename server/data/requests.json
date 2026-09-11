@@ -1,0 +1,126 @@
+[
+  {
+    "id": "e59c6e33-dd33-4c27-80a5-91355b3e1cdd",
+    "receiptToken": "No88caYjWoCToFymHBfVIEXW",
+    "receiptNumber": "OD-20260911-004",
+    "name": "demo test",
+    "phone": "0789092893",
+    "service": "Duvet / blanket 2kg, Washing",
+    "items": [
+      {
+        "service": "Duvet / blanket 2kg",
+        "kg": 1,
+        "unitPrice": 700,
+        "priceLabel": "700",
+        "subtotal": 700
+      },
+      {
+        "service": "Washing",
+        "kg": 1,
+        "unitPrice": 600,
+        "priceLabel": "600",
+        "subtotal": 600
+      }
+    ],
+    "estimatedTotal": 1300,
+    "location": "kenya",
+    "paymentMethod": "M-Pesa",
+    "mpesaPhone": "0789092893",
+    "paymentStatus": "pending",
+    "notes": "",
+    "status": "new",
+    "createdAt": "2026-09-10T21:30:41.256Z"
+  },
+  {
+    "id": "66c88eeb-cf74-4980-b718-7dc0c1e9a668",
+    "receiptToken": "m5om46yo31JLNhMtgXBNuIZ2",
+    "receiptNumber": "OD-20260911-003",
+    "name": "hesbon Angwenyi",
+    "phone": "+254722540540",
+    "service": "Ironing, Pillow, log-slif, Washing",
+    "items": [
+      {
+        "service": "Ironing",
+        "kg": 1,
+        "unitPrice": 700,
+        "priceLabel": "700",
+        "subtotal": 700
+      },
+      {
+        "service": "Pillow",
+        "kg": 14,
+        "unitPrice": 200,
+        "priceLabel": "200",
+        "subtotal": 2800
+      },
+      {
+        "service": "log-slif",
+        "kg": 1,
+        "unitPrice": 9000,
+        "priceLabel": "9000",
+        "subtotal": 9000
+      },
+      {
+        "service": "Washing",
+        "kg": 1,
+        "unitPrice": 600,
+        "priceLabel": "600",
+        "subtotal": 600
+      }
+    ],
+    "estimatedTotal": 13100,
+    "location": "Ngong road",
+    "paymentMethod": "M-Pesa",
+    "mpesaPhone": "+254722540540",
+    "paymentStatus": "pending",
+    "notes": "",
+    "status": "new",
+    "createdAt": "2026-09-10T21:27:06.679Z"
+  },
+  {
+    "id": "fa436c67-6a2f-4589-947a-0f64789387d0",
+    "receiptToken": "Mno9FHJuqgj4BF3ZlJvJcZ9X",
+    "receiptNumber": "OD-20260911-002",
+    "name": "hesbon Angwenyi",
+    "phone": "+254 722514540",
+    "service": "Trouser / dress, Wash, dry & fold, Washing, Towel",
+    "items": [
+      {
+        "service": "Trouser / dress",
+        "kg": 2,
+        "unitPrice": 200,
+        "priceLabel": "200",
+        "subtotal": 400
+      },
+      {
+        "service": "Wash, dry & fold",
+        "kg": 1,
+        "unitPrice": 1200,
+        "priceLabel": "1,200",
+        "subtotal": 1200
+      },
+      {
+        "service": "Washing",
+        "kg": 5,
+        "unitPrice": 600,
+        "priceLabel": "600",
+        "subtotal": 3000
+      },
+      {
+        "service": "Towel",
+        "kg": 1,
+        "unitPrice": 200,
+        "priceLabel": "200",
+        "subtotal": 200
+      }
+    ],
+    "estimatedTotal": 4800,
+    "location": "nairobi",
+    "paymentMethod": "M-Pesa",
+    "mpesaPhone": "+254722514540",
+    "paymentStatus": "pending",
+    "notes": "",
+    "status": "confirmed",
+    "createdAt": "2026-09-10T21:22:00.168Z"
+  }
+]
