@@ -62,7 +62,7 @@ The protected admin dashboard is available at:
 http://localhost:5173/admin
 ```
 
-Copy `.env.example` to `.env` and replace all example 
+Copy `.env.example` to `.env` and replace all 
 ```bash
 cp .env.example .env
 npm run dev:all
