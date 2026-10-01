@@ -1,0 +1,604 @@
+/* POS shell styles (loaded by POSLayout for all authenticated POS routes) */
+/* ============================================================
+   POS LAYOUT STYLES
+   ============================================================ */
+
+.pos-layout {
+  display: flex;
+  min-height: 100vh;
+  background: var(--bg-primary);
+}
+
+.pos-menu-toggle {
+  display: none;
+  position: fixed;
+  top: var(--space-3);
+  left: var(--space-3);
+  z-index: 60;
+  background: var(--fg-primary);
+  color: var(--bg-primary);
+  border: 2px solid var(--fg-primary);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2);
+  cursor: pointer;
+  min-width: 48px;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-hard);
+  transition: all var(--transition-normal);
+}
+
+.pos-menu-toggle:hover {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+.pos-sidebar {
+  width: 260px;
+  background: var(--bg-card);
+  border-right: 3px solid var(--fg-primary);
+  box-shadow: var(--shadow-hard);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  z-index: 50;
+  transition: transform var(--transition-bounce);
+}
+
+.pos-sidebar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-5);
+  border-bottom: 2px solid var(--border);
+}
+
+.pos-brand {
+  font: 800 16px/1 var(--font-heading);
+}
+
+.pos-brand small {
+  display: block;
+  font-size: var(--text-xs);
+  letter-spacing: 0.2em;
+  color: var(--primary);
+}
+
+.pos-sidebar-close {
+  display: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: var(--space-2);
+  color: var(--fg-primary);
+}
+
+.pos-nav {
+  flex: 1;
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  overflow-y: auto;
+}
+
+.pos-nav-link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 2px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--fg-primary);
+  font-weight: 700;
+  font-size: var(--text-sm);
+  text-transform: capitalize;
+  transition: all var(--transition-normal);
+  min-height: 48px;
+  text-decoration: none;
+}
+
+.pos-nav-link:hover {
+  background: var(--bg-muted);
+  border-color: var(--border);
+}
+
+.pos-nav-link.active {
+  background: var(--primary);
+  color: var(--primary-fg);
+  border-color: var(--primary);
+}
+
+.pos-nav-link svg {
+  flex-shrink: 0;
+}
+
+.pos-sidebar-footer {
+  padding: var(--space-4);
+  border-top: 2px solid var(--border);
+}
+
+.pos-user-info {
+  margin-bottom: var(--space-3);
+}
+
+.pos-user-email {
+  font-size: var(--text-sm);
+  color: var(--fg-muted);
+  font-weight: 600;
+}
+
+.pos-logout-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-3);
+  background: transparent;
+  border: 2px solid var(--error);
+  border-radius: var(--radius-sm);
+  color: var(--error);
+  font-weight: 800;
+  font-size: var(--text-sm);
+  cursor: pointer;
+  min-height: 44px;
+  transition: all var(--transition-normal);
+  font-family: var(--font-heading);
+}
+
+.pos-logout-btn:hover {
+  background: var(--error);
+  color: var(--fg-inverse);
+}
+
+.pos-sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 40;
+}
+
+.pos-main {
+  flex: 1;
+  margin-left: 260px;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.pos-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-6);
+  border-bottom: 2px solid var(--border);
+  background: var(--bg-card);
+  box-shadow: 2px 2px 0 var(--fg-primary);
+  min-height: 64px;
+}
+
+.pos-back-btn {
+  background: none;
+  border: 2px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  color: var(--fg-primary);
+}
+
+.pos-header-title h1 {
+  font-size: var(--text-xl);
+  margin: 0;
+}
+
+.pos-header-actions {
+  margin-left: auto;
+}
+
+.pos-online-indicator {
+  font-size: var(--text-xs);
+  font-weight: 800;
+  color: var(--success);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: var(--space-1) var(--space-3);
+  border: 2px solid var(--success);
+  border-radius: var(--radius-sm);
+}
+
+.pos-content {
+  flex: 1;
+  padding: var(--space-6);
+  overflow-y: auto;
+}
+
+/* ============================================================
+   MARKETING LAYOUT STYLES
+   ============================================================ */
+
+.marketing-layout {
+  /* Same base styles as before, no extra needed */
+}
+
+/* ============================================================
+   RESPONSIVE - POS & LOGIN
+   ============================================================ */
+
+@media (max-width: 850px) {
+  .pos-menu-toggle {
+    display: flex;
+  }
+
+  .pos-sidebar {
+    transform: translateX(-100%);
+    box-shadow: 8px 0 0 var(--fg-primary);
+  }
+
+  .pos-sidebar.open {
+    transform: translateX(0);
+  }
+
+  .pos-sidebar-overlay.open {
+    display: block;
+  }
+
+  .pos-sidebar-close {
+    display: flex;
+  }
+
+  .pos-main {
+    margin-left: 0;
+  }
+}
+
+/* ============================================================
+   POS SMALL-SCREEN REFINEMENTS
+   ============================================================ */
+
+@media (max-width: 480px) {
+  .pos-header {
+    padding: var(--space-3);
+    flex-wrap: wrap;
+  }
+
+  .pos-content {
+    padding: var(--space-4);
+  }
+
+  .pos-page {
+    padding: var(--space-4);
+  }
+}
+
+/* ============================================================
+   POS HEADER: THEME TOGGLE + SYNC STATUS
+   ============================================================ */
+
+.pos-theme-toggle {
+  background: var(--card-bg);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--fg-primary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: var(--space-2);
+}
+
+.pos-theme-toggle:hover {
+  border-color: var(--primary);
+}
+
+.pos-sync-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: var(--space-1) var(--space-3);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--fg-muted);
+  white-space: nowrap;
+}
+
+.pos-sync-status.online {
+  color: var(--success);
+  border-color: var(--success);
+}
+
+.pos-sync-status.offline {
+  color: var(--warning, #b45309);
+  border-color: var(--warning, #b45309);
+}
+
+.pos-sync-status.syncing {
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
+.pos-sync-status.error {
+  color: var(--error);
+  border-color: var(--error);
+}
+
+/* ============================================================
+   POS STATUS FOOTER (app footer, not marketing footer)
+   ============================================================ */
+
+.pos-footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  padding: var(--space-2) var(--space-6);
+  border-top: 2px solid var(--border);
+  background: var(--bg-card);
+  font-size: var(--text-xs);
+  color: var(--fg-muted);
+  font-weight: 600;
+}
+
+.pos-footer strong {
+  color: var(--fg-primary);
+}
+
+/* ============================================================
+   POS SALE (SERVICE SELECTION + CART)
+   ============================================================ */
+
+.sale-layout {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  gap: var(--space-5);
+  align-items: start;
+}
+
+.sale-panel {
+  border: 2px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--card-bg);
+  box-shadow: var(--shadow-hard);
+  padding: var(--space-4);
+  min-width: 0;
+}
+
+.sale-panel h3 {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-lg);
+}
+
+.sale-services {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: var(--space-3);
+}
+
+.sale-service-card {
+  border: 2px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-height: 44px;
+}
+
+.sale-service-card b {
+  font-size: var(--text-base);
+}
+
+.sale-service-card span {
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+}
+
+.sale-service-card .price {
+  color: var(--fg-primary);
+  font-weight: 800;
+}
+
+.sale-service-card button,
+.cart-row button,
+.sale-actions button {
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.qty-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.qty-controls button {
+  width: 44px;
+  height: 44px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--card-bg);
+  color: var(--fg-primary);
+  font-size: var(--text-lg);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.qty-controls output {
+  min-width: 2ch;
+  text-align: center;
+  font-weight: 800;
+  font-size: var(--text-base);
+}
+
+.cart-empty {
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+}
+
+.cart-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.cart-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--space-1) var(--space-3);
+  border-bottom: 1px dashed var(--border);
+  padding-bottom: var(--space-2);
+  align-items: center;
+}
+
+.cart-row .line-total {
+  font-weight: 800;
+  text-align: right;
+}
+
+.cart-row .remove-btn {
+  grid-column: 1 / -1;
+  justify-self: start;
+  background: none;
+  border: none;
+  color: var(--error);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  padding: var(--space-1) 0;
+  cursor: pointer;
+  min-height: 44px;
+}
+
+.cart-totals {
+  border-top: 2px solid var(--fg-primary);
+  padding-top: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--text-base);
+}
+
+.cart-totals .grand-total {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--text-xl);
+  font-weight: 800;
+}
+
+.sale-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-bottom: var(--space-3);
+}
+
+.sale-field label {
+  font-weight: 700;
+  font-size: var(--text-sm);
+}
+
+.sale-field input,
+.sale-field select {
+  border: 2px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--fg-primary);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-base);
+  min-height: 48px;
+  width: 100%;
+}
+
+.sale-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.sale-actions .btn-primary {
+  min-height: 52px;
+  font-size: var(--text-base);
+  font-weight: 800;
+}
+
+.sale-notice {
+  border: 2px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  margin-bottom: var(--space-3);
+  background: var(--bg-primary);
+  color: var(--fg-primary);
+}
+
+.sale-notice.offline {
+  border-color: var(--warning, #b45309);
+}
+
+.sale-notice.error {
+  border-color: var(--error);
+  color: var(--error);
+}
+
+.sale-complete {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+@media (max-width: 900px) {
+  .sale-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .sale-panel.cart-panel {
+    position: sticky;
+    bottom: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .sale-services {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .pos-filters {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: var(--space-1);
+  }
+
+  .order-card-actions,
+  .customer-card-actions {
+    flex-direction: column;
+  }
+
+  .order-card-actions > *,
+  .customer-card-actions > * {
+    width: 100%;
+  }
+}
+
+.pos-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}

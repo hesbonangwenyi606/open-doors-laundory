@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0b2948" />
+    <meta name="description" content="Open Doors POS — Simple, powerful point-of-sale software for laundromats. Manage orders, customers, payments, and reports — online or offline." />
+    <link rel="canonical" href="https://open-doors-laundory.vercel.app/" />
+    <meta property="og:site_name" content="Open Doors Laundromat" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Open Doors Laundromat | Laundry Services in Kitengela" />
+    <meta property="og:description" content="Laundry and garment care in Kitengela: wash & fold, dry cleaning, ironing, and pickup & delivery from Chuna Mall, Shop 10." />
+    <meta property="og:url" content="https://open-doors-laundory.vercel.app/" />
+    <meta property="og:image" content="https://open-doors-laundory.vercel.app/assets/laundry-machines.jpg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Open Doors Laundromat | Laundry Services in Kitengela" />
+    <meta name="twitter:description" content="Laundry and garment care in Kitengela: wash & fold, dry cleaning, ironing, and pickup & delivery." />
+    <meta name="twitter:image" content="https://open-doors-laundory.vercel.app/assets/laundry-machines.jpg" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Open Doors POS" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
+    <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="mask-icon" href="/assets/logo.jpg" color="#0b2948" />
+    <meta name="scope" content="/" />
+    <meta name="application-type" content="webapp" />
+    <title>Open Doors POS — Laundromat Point-of-Sale</title>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "LocalBusiness",
+        "name": "Open Doors Laundromat",
+        "description": "Professional garment care services including wash & fold, dry cleaning, ironing, and pickup & delivery in Kitengela and surrounding areas.",
+        "address": {
+          "@type": "PostalAddress",
+          "streetAddress": "Chuna Mall, Ground Floor, Shop 10",
+          "addressLocality": "Kitengela",
+          "addressCountry": "KE"
+        },
+        "telephone": "+254119444972",
+        "email": "opendoorslaundromat@gmail.com",
+        "url": "https://opendoorslaundromat.co.ke/",
+        "openingHours": ["Mo-Sa 08:00-21:00", "Su 14:00-19:00"],
+        "hasMap": "https://www.google.com/maps/search/?api=1&query=Chuna+Mall+Kitengela",
+        "geo": {"@type": "GeoCoordinates", "latitude": "-1.45", "longitude": "36.9833"},
+        "serviceType": ["Laundry", "Dry cleaning", "Ironing", "Pickup and delivery"],
+        "areaServed": ["Kitengela", "Kisaju", "Isinya", "Athi River", "Mlolongo", "Kajiado"]
+      }
+    </script>
+    <script>
+      (function() {
+        var stored = localStorage.getItem('od-theme');
+        var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = stored || (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').catch(() => {});
+        });
+      }
+    </script>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

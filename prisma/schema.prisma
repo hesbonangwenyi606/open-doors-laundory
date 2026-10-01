@@ -1,0 +1,143 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// ADMIN USERS
+// ============================================
+model AdminUser {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  // Only one admin user for this simple application
+  @@map("admin_users")
+}
+
+// ============================================
+// SITE SETTINGS
+// ============================================
+model SiteSettings {
+  id              String   @id @default(cuid())
+  seoTitle        String
+  seoDescription  String
+  businessName    String   @default("Open Doors Laundromat")
+  phone           String
+  email           String
+  address         String
+  businessHours   String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([id])
+  @@map("site_settings")
+}
+
+// ============================================
+// PROCESS STEPS
+// ============================================
+model ProcessStep {
+  id          String   @id @default(cuid())
+  stepNumber  Int
+  title       String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([stepNumber])
+  @@map("process_steps")
+}
+
+// ============================================
+// PRICING GROUPS
+// ============================================
+model PricingGroup {
+  id        String   @id @default(cuid())
+  title     String
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items PricingItem[]
+
+  @@unique([id])
+  @@map("pricing_groups")
+}
+
+// ============================================
+// PRICING ITEMS
+// ============================================
+model PricingItem {
+  id            String     @id @default(cuid())
+  groupId       String
+  group         PricingGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  serviceName   String
+  price         String     // Stored as formatted string e.g., "1,200"
+  unitPrice     Int        // Numeric value for calculations
+  sortOrder     Int        @default(0)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  @@unique([id])
+  @@index([groupId])
+  @@map("pricing_items")
+}
+
+// ============================================
+// BOOKING REQUESTS
+// ============================================
+model BookingRequest {
+  id              String          @id @default(cuid())
+  receiptNumber   String          @unique
+  receiptToken    String          @unique
+  name            String
+  phone           String
+  location        String
+  service         String?
+  paymentMethod   String          // "M-Pesa" or "Cash"
+  mpesaPhone      String?
+  notes           String?
+  estimatedTotal  Int
+  paymentStatus   String          @default("pending")
+  status          String          @default("new")
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  items BookingItem[]
+
+  @@index([receiptToken])
+  @@index([receiptNumber])
+  @@index([createdAt])
+  @@index([status])
+  @@map("booking_requests")
+}
+
+// ============================================
+// BOOKING ITEMS
+// ============================================
+model BookingItem {
+  id             String         @id @default(cuid())
+  requestId      String
+  request        BookingRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  service        String
+  kg             Int
+  unitPrice     Int
+  priceLabel    String         // Formatted price e.g., "1,200"
+  subtotal      Int
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@unique([id])
+  @@index([requestId])
+  @@map("booking_items")
+}

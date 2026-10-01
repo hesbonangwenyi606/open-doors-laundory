@@ -1,0 +1,39 @@
+# ============================================
+# DATABASE
+# ============================================
+# PostgreSQL connection string
+# Use Neon, Supabase, or other PostgreSQL provider
+DATABASE_URL="postgresql://user:password@host:port/database?schema=public"
+
+# ============================================
+# ADMIN CREDENTIALS (for initial setup)
+# ============================================
+# These are used to create the first admin user during database seeding
+# After seeding, only password_hash is stored in the database
+ADMIN_EMAIL="admin@opendoorslaundromat.co.ke"
+ADMIN_PASSWORD="your-strong-admin-password-here"
+
+# ============================================
+# SESSION SECURITY
+# ============================================
+# Generate a strong random secret (32+ bytes)
+# Use: openssl rand -base64 32
+SESSION_SECRET="your-32-byte-or-longer-random-secret-here"
+
+# ============================================
+# ENVIRONMENT
+# ============================================
+NODE_ENV="development"
+
+# ============================================
+# SERVER
+# ============================================
+# Port for the Express server (default: 3001)
+PORT=3001
+
+# ============================================
+# VERCEL
+# ============================================
+# Vercel will automatically set these in production
+# DO NOT set DATABASE_URL in Vercel's frontend environment variables
+# Only set it in the backend/server environment

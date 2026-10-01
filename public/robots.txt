@@ -1,0 +1,30 @@
+User-agent: *
+Allow: /
+Allow: /services
+Allow: /process
+Allow: /pricing
+Allow: /about
+Allow: /contact
+Allow: /booking
+Allow: /faq
+
+Disallow: /admin
+Disallow: /receipt/
+Disallow: /api/
+Disallow: /login
+Disallow: /dashboard
+Disallow: /orders
+Disallow: /customers
+Disallow: /payments
+Disallow: /reports
+Disallow: /settings
+Disallow: /offline-pos
+
+Sitemap: https://open-doors-laundory.vercel.app/sitemap.xml
+
+# Marketing pages
+Allow: /
+
+# Admin and API routes blocked
+Disallow: /admin*
+Disallow: /api*
