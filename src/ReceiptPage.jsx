@@ -1,5 +1,4 @@
-import React, { useEffect, useState } from 'react';
-import { Helmet } from 'react-helmet-async';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Printer, Download } from 'lucide-react';
 import { generateReceiptPDF, downloadPDFReceipt, printReceipt } from './lib/receipt.js';
@@ -104,6 +103,10 @@ export default function ReceiptPage() {
             <small>Issued to</small>
             <b>{receipt.name}</b>
             <span>{receipt.phone}</span>
+          </div>
+          <div>
+            <small>Served by</small>
+            <b>{receipt.servedBy || 'Not recorded'}</b>
           </div>
           <div>
             <small>Date issued</small>

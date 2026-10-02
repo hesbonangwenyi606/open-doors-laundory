@@ -151,7 +151,9 @@ async function markEntitySynced(item, ack = null) {
     if (ack?.externalId) patch.externalId = ack.externalId;
     await db.orders.where('clientId').equals(item.entityId).modify(patch);
   } else if (item.entityType === 'customer') {
-    await db.customers.where('clientId').equals(item.entityId).modify({ syncStatus: 'synced', lastSyncedAt: now });
+    const patch = { syncStatus: 'synced', lastSyncedAt: now };
+    if (ack?.externalId) patch.externalId = ack.externalId;
+    await db.customers.where('clientId').equals(item.entityId).modify(patch);
   } else if (item.entityType === 'payment') {
     await db.payments.where('clientId').equals(item.entityId).modify({ syncStatus: 'synced', lastSyncedAt: now });
   }

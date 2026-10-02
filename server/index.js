@@ -10,6 +10,7 @@ import { siteSettingsRepository } from './repositories/siteSettingsRepository.js
 import { processRepository } from './repositories/processRepository.js';
 import { pricingRepository } from './repositories/pricingRepository.js';
 import { bookingRepository } from './repositories/bookingRepository.js';
+import { customerRepository } from './repositories/customerRepository.js';
 import { requireAdmin, getOptionalSession, createSessionCookie, createLogoutCookie } from './middleware/sessionMiddleware.js';
 import { adminLoginLimiter, bookingLimiter } from './middleware/rateLimitMiddleware.js';
 import { applySecurityHeaders, corsMiddleware } from './middleware/securityHeadersMiddleware.js';
@@ -176,8 +177,9 @@ app.put('/api/admin/process', requireAdmin, validateProcessSteps, async (req, re
 // Get admin dashboard data
 app.get('/api/admin/dashboard', requireAdmin, async (_req, res, next) => {
   try {
-    const [requests, settings, process, stats] = await Promise.all([
+    const [requests, customers, settings, process, stats] = await Promise.all([
       bookingRepository.getRecentBookings(20),
+      customerRepository.getAllCustomers(),
       siteSettingsRepository.getSettings(),
       processRepository.getAllSteps(),
       bookingRepository.getBookingStats(),
@@ -187,6 +189,7 @@ app.get('/api/admin/dashboard', requireAdmin, async (_req, res, next) => {
     
     res.json({
       requests,
+      customers,
       settings: {
         seo: settings ? { title: settings.seoTitle, description: settings.seoDescription } : null,
         priceGroups: pricing.priceGroups,
@@ -243,6 +246,24 @@ app.patch('/api/admin/requests/:id', requireAdmin, validateStatusUpdate, async (
     
     const updatedRequest = await bookingRepository.updateBookingStatus(id, status);
     res.json(updatedRequest);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post('/api/admin/requests/:id/payment', requireAdmin, async (req, res, next) => {
+  try {
+    const method = String(req.body?.method || '');
+    const reference = String(req.body?.reference || '').trim();
+    if (!['Cash', 'M-Pesa'].includes(method)) {
+      return res.status(400).json({ error: 'Choose Cash or M-Pesa.' });
+    }
+    if (method === 'M-Pesa' && (!reference || reference.length > 64)) {
+      return res.status(400).json({ error: 'Enter a valid M-Pesa transaction code (up to 64 characters).' });
+    }
+    const booking = await bookingRepository.recordPayment(req.params.id, { method, reference });
+    if (!booking) return res.status(404).json({ error: 'Request not found.' });
+    res.json(booking);
   } catch (error) {
     next(error);
   }
@@ -318,6 +339,7 @@ async function handleOrderSync(entityId, action, payload, idempotencyKey = null)
       const location = payload.location || payload.pickupArea || '';
       const paymentMethod = payload.paymentMethod || payload.method || 'Cash';
       const mpesaPhone = payload.mpesaPhone || payload.mpesaNumber || null;
+      const servedBy = String(payload.servedBy || '').trim().slice(0, 80);
       const notes = payload.notes || '';
       const rawItems = payload.items || [];
       const service = payload.service || (rawItems[0]?.service || rawItems[0]?.name) || 'Washing';
@@ -325,17 +347,19 @@ async function handleOrderSync(entityId, action, payload, idempotencyKey = null)
         ? rawItems.map((it) => ({
             service: it.service || it.name || service,
             kg: Number(it.kg || it.quantity || 1),
+            discountAllowed: it.discountAllowed === true,
+            discountPercent: Number(it.discountPercent || 0),
           }))
         : [{ service, kg: Number(payload.quantity || 1) }];
       const result = await bookingRepository.createBooking(
-        { name, phone, service, location, paymentMethod, mpesaPhone, notes },
+        { name, phone, servedBy, service, location, paymentMethod, mpesaPhone, notes, allowDiscounts: true },
         items
       );
       return { success: true, externalId: result.request.id, receiptNumber: result.receiptNumber, idempotencyKey: idempotencyKey || result.receiptToken };
     }
     case 'update': {
       const { status, serverId } = payload;
-      const allowedStatuses = ['new', 'confirmed', 'completed', 'cancelled'];
+      const allowedStatuses = ['new', 'received', 'confirmed', 'washing', 'drying', 'ironing', 'ready_for_collection', 'completed', 'cancelled'];
       if (!allowedStatuses.includes(status)) {
         return { success: false, error: `Invalid status: ${status}` };
       }
@@ -356,9 +380,37 @@ async function handleOrderSync(entityId, action, payload, idempotencyKey = null)
 
 async function handleCustomerSync(entityId, action, payload, idempotencyKey = null) {
   switch (action) {
+    case 'delete': {
+      const phone = String(payload.phone || '').trim().slice(0, 30);
+      if (!phone) return { success: false, error: 'Customer phone is required.' };
+      await customerRepository.deleteCustomer(entityId, {
+        name: String(payload.name || '').trim().slice(0, 80),
+        phone,
+      });
+      return { success: true, deleted: true, idempotencyKey };
+    }
     case 'create': {
-      const { name, phone, email, address } = payload;
-      return { success: true, externalId: entityId, idempotencyKey: idempotencyKey || `cust_${Date.now()}` };
+      const name = String(payload.name || '').trim().slice(0, 80);
+      const phone = String(payload.phone || '').trim().slice(0, 30);
+      const gender = payload.gender ? String(payload.gender).toLowerCase() : null;
+      if (!name || !phone) {
+        return { success: false, error: 'Customer name and phone are required.' };
+      }
+      if (gender && !['male', 'female'].includes(gender)) {
+        return { success: false, error: 'Gender must be male or female.' };
+      }
+      const customer = await customerRepository.upsertCustomer(entityId, {
+        name,
+        phone,
+        email: String(payload.email || '').trim().slice(0, 254),
+        servedBy: String(payload.servedBy || '').trim().slice(0, 80),
+        gender,
+      });
+      return {
+        success: true,
+        externalId: customer.id,
+        idempotencyKey: idempotencyKey || `cust_${Date.now()}`,
+      };
     }
     default:
       return { success: false, error: `Unknown action: ${action}` };

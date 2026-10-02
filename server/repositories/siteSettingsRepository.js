@@ -27,7 +27,7 @@ export const siteSettingsRepository = {
           phone: data.phone || existing.phone,
           email: data.email || existing.email,
           address: data.address || existing.address,
-          businessHours: data.businessHours ? JSON.stringify(data.businessHours) : existing.businessHours,
+          businessHours: JSON.stringify(data.businessHours || existing.businessHours || null),
         },
       });
     }

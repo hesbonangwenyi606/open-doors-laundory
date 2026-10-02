@@ -102,10 +102,12 @@ model BookingRequest {
   receiptToken    String          @unique
   name            String
   phone           String
+  servedBy        String?
   location        String
   service         String?
   paymentMethod   String          // "M-Pesa" or "Cash"
   mpesaPhone      String?
+  paymentReference String?
   notes           String?
   estimatedTotal  Int
   paymentStatus   String          @default("pending")
@@ -134,10 +136,33 @@ model BookingItem {
   unitPrice     Int
   priceLabel    String         // Formatted price e.g., "1,200"
   subtotal      Int
+  originalSubtotal Int         @default(0)
+  discountAllowed Boolean      @default(false)
+  discountPercent Float        @default(0)
+  discountAmount Int            @default(0)
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 
   @@unique([id])
   @@index([requestId])
   @@map("booking_items")
+}
+
+// ============================================
+// POS CUSTOMERS
+// ============================================
+model Customer {
+  id        String   @id @default(cuid())
+  clientId  String   @unique
+  name      String
+  phone     String
+  email     String?
+  servedBy  String?
+  gender    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  @@index([phone])
+  @@map("customers")
 }

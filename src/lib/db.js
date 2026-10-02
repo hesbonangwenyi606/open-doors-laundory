@@ -343,6 +343,9 @@ export async function upsertServerOrders(serverRequests) {
       externalId: req.id,
       customerId: null,
       customerName: req.name || 'Walk-in',
+      phone: req.phone || '',
+      servedBy: req.servedBy || '',
+      location: req.location || '',
       service: req.service || '',
       totalAmount: Number(req.estimatedTotal) || 0,
       paidAmount: null,
@@ -350,6 +353,7 @@ export async function upsertServerOrders(serverRequests) {
       status: req.status || 'new',
       paymentStatus: req.paymentStatus || 'pending',
       paymentMethod: req.paymentMethod || null,
+      paymentReference: req.paymentReference || '',
       items: (req.items || []).map((i) => ({
         name: i.service,
         service: i.service,
@@ -357,6 +361,10 @@ export async function upsertServerOrders(serverRequests) {
         unitPrice: i.unitPrice,
         quantity: i.kg,
         kg: i.kg,
+        originalSubtotal: i.originalSubtotal ?? Number(i.unitPrice) * Number(i.kg),
+        discountAllowed: Boolean(i.discountAllowed),
+        discountPercent: Number(i.discountPercent) || 0,
+        discountAmount: Number(i.discountAmount) || 0,
         subtotal: i.subtotal,
       })),
       notes: req.notes || '',
@@ -381,23 +389,37 @@ export async function upsertServerOrders(serverRequests) {
 export async function upsertServerCustomers(serverRequests) {
   const now = new Date().toISOString();
   let mirrored = 0;
-  for (const req of serverRequests || []) {
-    if (!req || !req.phone) continue;
-    const existing = await db.customers.where('phone').equals(req.phone).first();
-    if (existing) continue;
-    await db.customers.add({
-      clientId: `server_${req.phone}`,
+  const serverRows = (serverRequests || []).filter((req) => req?.phone);
+  const serverIds = new Set(serverRows.map((req) => req.id).filter(Boolean));
+  for (const req of serverRows) {
+    const customer = {
+      clientId: req.clientId || `server_${req.phone}`,
       externalId: req.id || null,
       name: req.name || 'Walk-in',
       phone: req.phone,
-      email: '',
-      address: req.location || '',
+      email: req.email || '',
+      address: req.location || req.address || '',
+      servedBy: req.servedBy || '',
+      gender: req.gender || '',
       syncStatus: 'synced',
       createdAt: req.createdAt || now,
-      updatedAt: now,
+      updatedAt: req.updatedAt || now,
       lastSyncedAt: now,
-    });
+    };
+    const existing = await db.customers.where('phone').equals(req.phone).first();
+    if (existing?.syncStatus === 'pending') continue;
+    if (existing) {
+      await db.customers.update(existing.id, { ...customer, clientId: existing.clientId });
+    } else {
+      await db.customers.add(customer);
+    }
     mirrored += 1;
+  }
+  const syncedCustomers = await db.customers.where('syncStatus').equals('synced').toArray();
+  for (const customer of syncedCustomers) {
+    if (customer.externalId && !serverIds.has(customer.externalId)) {
+      await db.customers.delete(customer.id);
+    }
   }
   return { mirrored };
 }

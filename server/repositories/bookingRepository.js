@@ -1,9 +1,74 @@
 import { prisma } from '../db/client.js';
 import { generateReceiptToken, generateReceiptNumber, getTodayDateKey } from '../services/receiptService.js';
 
+async function ensureBookingItemDiscountColumns() {
+  const columns = await prisma.$queryRaw`PRAGMA table_info("booking_items")`;
+  const columnNames = new Set(columns.map((column) => column.name));
+  const addedOriginalSubtotal = !columnNames.has('originalSubtotal');
+  const additions = [
+    ['originalSubtotal', 'INTEGER NOT NULL DEFAULT 0'],
+    ['discountAllowed', 'INTEGER NOT NULL DEFAULT 0'],
+    ['discountPercent', 'REAL NOT NULL DEFAULT 0'],
+    ['discountAmount', 'INTEGER NOT NULL DEFAULT 0'],
+  ];
+  for (const [name, definition] of additions) {
+    if (!columnNames.has(name)) {
+      await prisma.$executeRawUnsafe(`ALTER TABLE "booking_items" ADD COLUMN "${name}" ${definition}`);
+    }
+  }
+  if (addedOriginalSubtotal) {
+    await prisma.$executeRaw`UPDATE "booking_items" SET "originalSubtotal" = "unitPrice" * "kg"`;
+  }
+}
+
+async function ensureBookingServedByColumn() {
+  const columns = await prisma.$queryRaw`PRAGMA table_info("booking_requests")`;
+  const names = new Set(columns.map((column) => column.name));
+  if (!names.has('servedBy')) {
+    await prisma.$executeRawUnsafe('ALTER TABLE "booking_requests" ADD COLUMN "servedBy" TEXT');
+  }
+  if (!names.has('paymentReference')) {
+    await prisma.$executeRawUnsafe('ALTER TABLE "booking_requests" ADD COLUMN "paymentReference" TEXT');
+  }
+}
+
+async function attachItemDiscounts(request) {
+  if (!request) return request;
+  await ensureBookingItemDiscountColumns();
+  await ensureBookingServedByColumn();
+  const [bookingFields] = await prisma.$queryRaw`
+    SELECT "servedBy", "paymentReference" FROM "booking_requests" WHERE "id" = ${request.id}
+  `;
+  const discounts = await prisma.$queryRaw`
+    SELECT "id", "originalSubtotal", "discountAllowed", "discountPercent", "discountAmount"
+    FROM "booking_items"
+    WHERE "requestId" = ${request.id}
+  `;
+  const byId = new Map(discounts.map((item) => [item.id, item]));
+  return {
+    ...request,
+    servedBy: bookingFields?.servedBy || null,
+    paymentReference: bookingFields?.paymentReference || null,
+    items: (request.items || []).map((item) => {
+      const discount = byId.get(item.id);
+      return {
+        ...item,
+        ...(discount || {}),
+        discountAllowed: discount?.discountAllowed === true || discount?.discountAllowed === 1,
+      };
+    }),
+  };
+}
+
+async function attachDiscountsToBookings(requests) {
+  return Promise.all(requests.map(attachItemDiscounts));
+}
+
 export const bookingRepository = {
   // Create a new booking request with items
   async createBooking(bookingData, items) {
+    await ensureBookingItemDiscountColumns();
+    await ensureBookingServedByColumn();
     const now = new Date();
     const businessTimeZone = 'Africa/Nairobi';
     
@@ -48,7 +113,14 @@ export const bookingRepository = {
       }
 
       const unitPrice = pricingItem.unitPrice;
-      const subtotal = unitPrice * kg;
+      const discountAllowed = bookingData.allowDiscounts && item.discountAllowed === true;
+      const discountPercent = discountAllowed ? Number(item.discountPercent || 0) : 0;
+      if (!Number.isFinite(discountPercent) || discountPercent < 0 || discountPercent > 100) {
+        throw new Error(`Invalid discount for ${itemName}: ${discountPercent}`);
+      }
+      const originalSubtotal = unitPrice * kg;
+      const discountAmount = Math.round(originalSubtotal * discountPercent / 100);
+      const subtotal = originalSubtotal - discountAmount;
       estimatedTotal += subtotal;
 
       bookingItemsData.push({
@@ -56,6 +128,10 @@ export const bookingRepository = {
         kg,
         unitPrice,
         priceLabel: pricingItem.price,
+        originalSubtotal,
+        discountAllowed,
+        discountPercent,
+        discountAmount,
         subtotal,
       });
     }
@@ -84,16 +160,21 @@ export const bookingRepository = {
             : null,
           notes: (bookingData.notes || '').trim().slice(0, 500),
           estimatedTotal,
-          paymentStatus: 'pending',
+          paymentStatus: bookingData.allowDiscounts && bookingData.paymentMethod === 'Cash' ? 'paid' : 'pending',
           status: 'new',
           createdAt: now.toISOString(),
           updatedAt: now.toISOString(),
         },
       });
+      await tx.$executeRaw`
+        UPDATE "booking_requests"
+        SET "servedBy" = ${bookingData.servedBy || null}
+        WHERE "id" = ${request.id}
+      `;
       
       // Create items
       for (const itemData of bookingItemsData) {
-        await tx.bookingItem.create({
+          const createdItem = await tx.bookingItem.create({
           data: {
             requestId: request.id,
             service: itemData.service,
@@ -103,6 +184,14 @@ export const bookingRepository = {
             subtotal: itemData.subtotal,
           },
         });
+          await tx.$executeRaw`
+            UPDATE "booking_items"
+            SET "originalSubtotal" = ${itemData.originalSubtotal},
+                "discountAllowed" = ${itemData.discountAllowed},
+                "discountPercent" = ${itemData.discountPercent},
+                "discountAmount" = ${itemData.discountAmount}
+            WHERE "id" = ${createdItem.id}
+          `;
       }
       
       return { request, bookingItemsData, receiptNumber, receiptToken, estimatedTotal };
@@ -129,16 +218,18 @@ export const bookingRepository = {
     if (!request) return null;
     
     // Return without the receipt token for public receipt pages
-    const { receiptToken, ...receipt } = request;
+    const enriched = await attachItemDiscounts(request);
+    const { receiptToken, ...receipt } = enriched;
     return receipt;
   },
 
   // Get a booking request by ID (admin)
   async getBookingById(id) {
-    return prisma.bookingRequest.findUnique({
+    const request = await prisma.bookingRequest.findUnique({
       where: { id },
       include: { items: true },
     });
+    return attachItemDiscounts(request);
   },
 
   // Get all booking requests with pagination
@@ -157,16 +248,17 @@ export const bookingRepository = {
       prisma.bookingRequest.count({ where }),
     ]);
     
-    return { requests, total, page, totalPages: Math.ceil(total / limit) };
+    return { requests: await attachDiscountsToBookings(requests), total, page, totalPages: Math.ceil(total / limit) };
   },
 
   // Get recent bookings for dashboard
   async getRecentBookings(limit = 5) {
-    return prisma.bookingRequest.findMany({
+    const requests = await prisma.bookingRequest.findMany({
       include: { items: true },
       orderBy: { createdAt: 'desc' },
       take: limit,
     });
+    return attachDiscountsToBookings(requests);
   },
 
   // Get booking statistics
@@ -227,15 +319,28 @@ export const bookingRepository = {
 
   // Update booking status
   async updateBookingStatus(id, status) {
-    const allowedStatuses = ['new', 'confirmed', 'completed', 'cancelled'];
+    const allowedStatuses = ['new', 'received', 'confirmed', 'washing', 'drying', 'ironing', 'ready_for_collection', 'completed', 'cancelled'];
     if (!allowedStatuses.includes(status)) {
       throw new Error(`Invalid status: ${status}`);
     }
-    
-    return prisma.bookingRequest.update({
-      where: { id },
-      data: { status, updatedAt: new Date() },
-    });
+    await prisma.bookingRequest.update({ where: { id }, data: { status, updatedAt: new Date() } });
+    return this.getBookingById(id);
+  },
+
+  async recordPayment(id, { method, reference = '' }) {
+    await ensureBookingServedByColumn();
+    const existing = await prisma.bookingRequest.findUnique({ where: { id } });
+    if (!existing) return null;
+    if (existing.paymentStatus === 'paid') return this.getBookingById(id);
+    await prisma.$executeRaw`
+      UPDATE "booking_requests"
+      SET "paymentStatus" = 'paid',
+          "paymentMethod" = ${method},
+          "paymentReference" = ${reference || null},
+          "updatedAt" = ${new Date().toISOString()}
+      WHERE "id" = ${id}
+    `;
+    return this.getBookingById(id);
   },
 
   // Delete a booking request (only completed ones)

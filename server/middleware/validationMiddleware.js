@@ -215,10 +215,10 @@ export function validatePricingUpdate(req, res, next) {
 export function validateStatusUpdate(req, res, next) {
   try {
     const { status } = req.body || {};
-    const allowedStatuses = ['new', 'confirmed', 'completed', 'cancelled'];
+    const allowedStatuses = ['new', 'received', 'confirmed', 'washing', 'drying', 'ironing', 'ready_for_collection', 'completed', 'cancelled'];
 
     if (!status || !allowedStatuses.includes(status)) {
-      return res.status(400).json({ error: 'Invalid status. Must be one of: new, confirmed, completed, cancelled.' });
+      return res.status(400).json({ error: 'Invalid booking status.' });
     }
 
     req.validatedStatus = status;

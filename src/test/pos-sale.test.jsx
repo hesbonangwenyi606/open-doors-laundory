@@ -4,7 +4,7 @@ import { render, screen, waitFor, within, cleanup } from '@testing-library/react
 import { MemoryRouter } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
 import {
-  addToCart, setLineQty, removeFromCart, cartTotal, cartCount, buildOfflineOrder, clampQty,
+  addToCart, setLineQty, setLineDiscount, removeFromCart, cartTotal, cartCount, buildOfflineOrder, clampQty,
 } from '../lib/pos.js';
 import { db, addOrderTransaction, upsertServerOrders, upsertServerCustomers } from '../lib/db.js';
 
@@ -48,15 +48,32 @@ describe('POS cart (offline, integer KES math)', () => {
     expect(cartTotal(cart)).toBe(600);
   });
 
+  it('calculates per-item discounts from the original subtotal and preserves them when quantity changes', () => {
+    let cart = addToCart([], WASH, 2);
+    cart = setLineDiscount(cart, 'Washing', true, 12.5);
+    expect(cart[0]).toMatchObject({ originalSubtotal: 1200, discountPercent: 12.5, discountAmount: 150, subtotal: 1050 });
+    expect(cartTotal(cart)).toBe(1050);
+
+    cart = setLineQty(cart, 'Washing', 3);
+    expect(cart[0]).toMatchObject({ originalSubtotal: 1800, discountAmount: 225, subtotal: 1575 });
+
+    cart = setLineDiscount(cart, 'Washing', false, 12.5);
+    expect(cart[0]).toMatchObject({ discountAllowed: false, discountPercent: 0, discountAmount: 0, subtotal: 1800 });
+  });
+
   it('builds an offline order record from cart + customer + payment', () => {
     const cart = addToCart(addToCart([], WASH, 2), DRY, 1);
-    const order = buildOfflineOrder({ cart, customerName: 'Jane', paymentMethod: 'Cash', notes: '' });
+    const order = buildOfflineOrder({ cart, customerName: 'Jane', servedBy: 'Miriam', paymentMethod: 'Cash', notes: '' });
     expect(order.totalAmount).toBe(1800);
+    expect(order.servedBy).toBe('Miriam');
     expect(order.paymentStatus).toBe('paid');
     expect(order.items).toHaveLength(2);
     const mpesa = buildOfflineOrder({ cart, customerName: '', paymentMethod: 'M-Pesa' });
     expect(mpesa.customerName).toBe('Walk-in');
     expect(mpesa.paymentStatus).toBe('pending');
+    const unpaid = buildOfflineOrder({ cart, customerName: 'Jane', paymentMethod: 'Unpaid' });
+    expect(unpaid.paymentMethod).toBe('Unpaid');
+    expect(unpaid.paymentStatus).toBe('pending');
   });
 });
 
@@ -170,7 +187,7 @@ describe('POS vs marketing routing separation', () => {
       expect(screen.getByRole('navigation', { name: 'POS' })).toBeInTheDocument();
     });
     const posNav = screen.getByRole('navigation', { name: 'POS' });
-    expect(within(posNav).getByRole('link', { name: /new sale/i }).getAttribute('href')).toBe('/new-order');
+    expect(within(posNav).getByRole('link', { name: /new booking/i }).getAttribute('href')).toBe('/new-order');
     expect(within(posNav).queryByRole('link', { name: /^services$/i })).not.toBeInTheDocument();
   });
 

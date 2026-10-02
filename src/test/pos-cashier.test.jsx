@@ -8,7 +8,7 @@ import 'fake-indexeddb/auto';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, within, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import { db } from '../lib/db.js';
 import { processOutbox } from '../lib/offline.js';
 import POSSalePage from '../POSSalePage.jsx';
@@ -37,6 +37,11 @@ function renderSale() {
       <POSSalePage />
     </MemoryRouter>
   );
+}
+
+function RouteStateProbe() {
+  const location = useLocation();
+  return <output data-testid="route-state">{`${location.pathname}:${location.state?.tab || ''}`}</output>;
 }
 
 /** In-memory fake backend: assigns server ids, counts writes per idempotency key. */
@@ -80,6 +85,72 @@ afterEach(() => {
 });
 
 describe('cashier workflow offline (real component, real Dexie)', () => {
+  it('blocks checkout and persists nothing when customer details are missing', async () => {
+    setOnline(false);
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('offline')));
+    const user = userEvent.setup();
+    renderSale();
+
+    await waitFor(() => expect(screen.getByText('Washing')).toBeInTheDocument());
+    const washingCard = screen.getByText('Washing').closest('article');
+    await user.click(within(washingCard).getByRole('button', { name: /^add$/i }));
+    await user.click(screen.getByRole('button', { name: /complete sale/i }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Customer name, phone number, and Served By are required');
+    expect(await db.orders.count()).toBe(0);
+    expect(await db.outbox.count()).toBe(0);
+    expect(screen.queryByText(/sale complete/i)).not.toBeInTheDocument();
+  });
+
+  it('applies an item discount, calculates the final amount, and accepts Unpaid', async () => {
+    setOnline(false);
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('offline')));
+    const user = userEvent.setup();
+    renderSale();
+
+    await waitFor(() => expect(screen.getByText('Washing')).toBeInTheDocument());
+    const washingCard = screen.getByText('Washing').closest('article');
+    await user.click(within(washingCard).getByRole('button', { name: /^add$/i }));
+    const washingRow = within(screen.getByLabelText('Cart and checkout')).getByText('Washing').closest('.cart-row');
+    await user.selectOptions(within(washingRow).getByLabelText('Discount allowed for Washing'), 'yes');
+    await user.clear(within(washingRow).getByLabelText('Discount percentage for Washing'));
+    await user.type(within(washingRow).getByLabelText('Discount percentage for Washing'), '10');
+    await user.type(screen.getByLabelText('Customer name'), 'Discount Customer');
+    await user.type(screen.getByLabelText('Customer phone'), '0712345678');
+    await user.type(screen.getByLabelText('Served by'), 'Miriam');
+    expect(within(washingRow).getByText('Final: KSh 540')).toBeInTheDocument();
+    expect(screen.getByText('KSh 540', { selector: '.grand-total span:last-child' })).toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText('Payment method'), 'Unpaid');
+    await user.click(screen.getByRole('button', { name: /complete sale/i }));
+    await waitFor(() => expect(screen.getByText(/sale complete/i)).toBeInTheDocument());
+
+    const [order] = await db.orders.toArray();
+    expect(order).toMatchObject({ totalAmount: 540, paymentMethod: 'Unpaid', paymentStatus: 'pending', servedBy: 'Miriam' });
+    expect(order.items[0]).toMatchObject({
+      unitPrice: 600,
+      originalSubtotal: 600,
+      discountAllowed: true,
+      discountPercent: 10,
+      discountAmount: 60,
+      subtotal: 540,
+    });
+    expect((await db.payments.toArray())[0]).toMatchObject({ amount: 540, method: 'Unpaid' });
+  });
+
+  it('opens the pricing editor from the sale header button', async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <POSSalePage />
+        <RouteStateProbe />
+      </MemoryRouter>
+    );
+
+    await user.click(screen.getByRole('button', { name: /manage services & prices/i }));
+    expect(screen.getByTestId('route-state')).toHaveTextContent('/dashboard:pricing');
+  });
+
   it('completes a full sale offline: services → cart → qty → customer → cash → order → receipt', async () => {
     setOnline(false);
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('offline')));
@@ -107,6 +178,7 @@ describe('cashier workflow offline (real component, real Dexie)', () => {
     await user.type(screen.getByLabelText('Customer name'), 'Sam');
     await waitFor(() => expect(screen.getByRole('option', { name: /server sam/i })).toBeInTheDocument());
     await user.click(screen.getByRole('option', { name: /server sam/i }));
+    await user.type(screen.getByLabelText('Served by'), 'Miriam');
 
     await user.click(screen.getByRole('button', { name: /complete sale/i }));
 
@@ -137,6 +209,7 @@ describe('cashier workflow offline (real component, real Dexie)', () => {
     await user.click(within(washingCard).getByRole('button', { name: /^add$/i }));
     await user.type(screen.getByLabelText('Customer name'), 'Refresh Rose');
     await user.type(screen.getByLabelText('Customer phone'), '0733333333');
+    await user.type(screen.getByLabelText('Served by'), 'Miriam');
     await user.click(screen.getByRole('button', { name: /complete sale/i }));
     await waitFor(() => expect(screen.getByText(/sale complete/i)).toBeInTheDocument());
 
@@ -145,7 +218,7 @@ describe('cashier workflow offline (real component, real Dexie)', () => {
     cleanup();
     const orders = await db.orders.toArray();
     expect(orders).toHaveLength(1);
-    expect(orders[0].customerName).toBe('Refresh Rose');
+    expect(orders[0]).toMatchObject({ customerName: 'Refresh Rose', servedBy: 'Miriam' });
     const pending = await db.outbox.where('status').equals('pending').toArray();
     // order + payment + new-customer creates queued.
     expect(pending.length).toBeGreaterThanOrEqual(3);
@@ -170,6 +243,7 @@ describe('cashier workflow offline (real component, real Dexie)', () => {
       await user.type(screen.getByLabelText('Customer name'), name);
       await user.clear(screen.getByLabelText('Customer phone'));
       await user.type(screen.getByLabelText('Customer phone'), phone);
+      await user.type(screen.getByLabelText('Served by'), 'Cashier');
       await user.click(screen.getByRole('button', { name: /complete sale/i }));
       await waitFor(() => expect(screen.getByText(/sale complete/i)).toBeInTheDocument());
       await user.click(screen.getByRole('button', { name: /start new sale/i }));
@@ -226,6 +300,7 @@ describe('cashier workflow offline (real component, real Dexie)', () => {
     await user.click(within(card).getByRole('button', { name: /^add$/i }));
     await user.type(screen.getByLabelText('Customer name'), 'Partial Pam');
     await user.type(screen.getByLabelText('Customer phone'), '0777777777');
+    await user.type(screen.getByLabelText('Served by'), 'Miriam');
     await user.click(screen.getByRole('button', { name: /complete sale/i }));
     await waitFor(() => expect(screen.getByText(/sale complete/i)).toBeInTheDocument());
 
@@ -260,6 +335,7 @@ describe('restart durability (fresh database handle, same device)', () => {
     await user.click(within(card).getByRole('button', { name: /^add$/i }));
     await user.type(screen.getByLabelText('Customer name'), 'Restart Rita');
     await user.type(screen.getByLabelText('Customer phone'), '0788888888');
+    await user.type(screen.getByLabelText('Served by'), 'Miriam');
     await user.click(screen.getByRole('button', { name: /complete sale/i }));
     await waitFor(() => expect(screen.getByText(/sale complete/i)).toBeInTheDocument());
     cleanup();

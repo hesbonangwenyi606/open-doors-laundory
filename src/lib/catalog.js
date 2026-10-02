@@ -85,7 +85,8 @@ export async function syncCustomersToLocal() {
     throw new Error(`Customer sync failed: HTTP ${response.status}`);
   }
   const data = await response.json();
-  return upsertServerCustomers(data.requests);
+  const serverCustomers = Array.isArray(data.customers) ? data.customers : data.requests || [];
+  return upsertServerCustomers(serverCustomers);
 }
 
 export async function isCatalogAvailable() {

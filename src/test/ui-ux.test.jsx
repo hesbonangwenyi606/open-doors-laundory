@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor, within, cleanup, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, within, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
@@ -144,14 +144,14 @@ const dashboardPayload = {
 };
 
 describe('dashboard + modal accessibility', () => {
-  async function renderDashboard() {
+  async function renderDashboard(initialEntry = '/dashboard') {
     const AdminDashboard = (await import('../AdminDashboard.jsx')).default;
     const { AuthProvider } = await import('../AuthContext.jsx');
     const App = (await import('../App.jsx')).default;
     void AdminDashboard;
     render(
       <HelmetProvider>
-        <MemoryRouter initialEntries={['/dashboard']}>
+        <MemoryRouter initialEntries={[initialEntry]}>
           <AuthProvider>
             <App />
           </AuthProvider>
@@ -193,6 +193,79 @@ describe('dashboard + modal accessibility', () => {
       listeners.keydown.forEach((fn) => fn({ key: 'Escape' }));
     });
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  });
+
+  it('shows existing pricing services and lets the owner add a service row', async () => {
+    mockFetch.mockImplementation((url, options = {}) => {
+      if (String(url).includes('/api/admin/session')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ authenticated: true, email: 'a@b.co' }) });
+      }
+      if (String(url).includes('/api/admin/dashboard')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({
+            ...dashboardPayload,
+            settings: {
+              seo: { title: 'T', description: 'D' },
+              priceGroups: [{
+                id: 'group-1',
+                t: 'Full load services',
+                items: [
+                  { id: 'service-1', name: 'Washing', price: '600', unitPrice: 600 },
+                  { id: 'service-2', name: 'Drying', price: '300', unitPrice: 300 },
+                ],
+              }],
+            },
+          }),
+        });
+      }
+      if (String(url).includes('/api/admin/settings')) {
+        const body = JSON.parse(options.body);
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ priceGroups: body.priceGroups }) });
+      }
+      return Promise.reject(new Error(`unexpected: ${url}`));
+    });
+    const user = userEvent.setup();
+    await renderDashboard({ pathname: '/dashboard', state: { tab: 'pricing' } });
+
+    const serviceInput = await screen.findByRole('textbox', { name: 'Service name in Full load services, row 1' });
+    expect(serviceInput).toHaveValue('Washing');
+    expect(screen.getByRole('spinbutton', { name: 'Price in KSh for Washing' })).toHaveValue(600);
+    expect(screen.getByRole('textbox', { name: 'Service name in Full load services, row 2' })).toHaveValue('Drying');
+
+    const washingPrice = screen.getByRole('spinbutton', { name: 'Price in KSh for Washing' });
+    await user.clear(washingPrice);
+    await user.type(washingPrice, '650');
+    await user.click(screen.getByRole('button', { name: 'Save Washing' }));
+    await waitFor(() => expect(screen.getByText('Pricing updated.')).toBeInTheDocument());
+    let saveCall = mockFetch.mock.calls.filter(([url]) => String(url).includes('/api/admin/settings')).at(-1);
+    expect(JSON.parse(saveCall[1].body).priceGroups[0].items[0]).toEqual(['Washing', '650']);
+
+    const settingsCallsBeforeDeleteCancel = mockFetch.mock.calls.filter(([url]) => String(url).includes('/api/admin/settings')).length;
+    await user.click(screen.getByRole('button', { name: 'Delete Washing' }));
+    expect(screen.getByRole('alertdialog')).toHaveTextContent('Are you sure you want to delete Washing?');
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(mockFetch.mock.calls.filter(([url]) => String(url).includes('/api/admin/settings'))).toHaveLength(settingsCallsBeforeDeleteCancel);
+
+    await user.click(screen.getByRole('button', { name: 'Delete Washing' }));
+    await user.click(screen.getByRole('button', { name: 'Yes, Delete' }));
+    await waitFor(() => expect(screen.queryByDisplayValue('Washing')).not.toBeInTheDocument());
+
+    await user.click(screen.getByRole('button', { name: /add new service/i }));
+    await user.type(screen.getByLabelText('Service name'), 'Ironing');
+    await user.type(screen.getByLabelText('Price (KSh)'), '250');
+    await user.click(screen.getByRole('button', { name: 'Review Service' }));
+    expect(screen.getByRole('dialog')).toHaveTextContent('Are you sure you want to add Ironing');
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    await user.click(screen.getByRole('button', { name: /add new service/i }));
+    await user.type(screen.getByLabelText('Service name'), 'Ironing');
+    await user.type(screen.getByLabelText('Price (KSh)'), '250');
+    await user.click(screen.getByRole('button', { name: 'Review Service' }));
+    await user.click(screen.getByRole('button', { name: 'Yes, Add Service' }));
+    await waitFor(() => expect(screen.getByText('New service added.')).toBeInTheDocument());
+    saveCall = mockFetch.mock.calls.filter(([url]) => String(url).includes('/api/admin/settings')).at(-1);
+    expect(JSON.parse(saveCall[1].body).priceGroups[0].items).toContainEqual(['Ironing', '250']);
   });
 
   it('stays in the POS with a retry option on network failure (no false logout)', async () => {

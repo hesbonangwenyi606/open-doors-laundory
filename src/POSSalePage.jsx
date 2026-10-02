@@ -1,8 +1,8 @@
-import React, { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Plus, Minus, Trash2, Search, Download, Printer, CheckCircle, AlertCircle, Receipt as ReceiptIcon } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { Plus, Trash2, Search, Download, Printer, CheckCircle, AlertCircle, Receipt as ReceiptIcon, Settings2 } from 'lucide-react';
 import { useOffline, useOfflineCustomers } from './hooks/useOffline.js';
-import { addToCart, setLineQty, removeFromCart, cartTotal, cartCount, buildOfflineOrder, clampQty } from './lib/pos.js';
+import { addToCart, setLineQty, setLineDiscount, removeFromCart, cartTotal, cartCount, buildOfflineOrder, clampQty } from './lib/pos.js';
 import { addOrderTransaction, updateLocalOrder, saveReceiptToLocal } from './lib/db.js';
 import { generateReceiptPDF, downloadPDFReceipt, printReceipt } from './lib/receipt.js';
 
@@ -24,6 +24,7 @@ function randomToken() {
 
 export default function POSSalePage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const {
     isOnline, backendDown, pendingCount, catalog, catalogSyncedAt,
     createCustomerOffline, processOutbox,
@@ -33,8 +34,9 @@ export default function POSSalePage() {
   const [cart, setCart] = useState([]);
   const [search, setSearch] = useState('');
   const [qtyByService, setQtyByService] = useState({});
-  const [customerName, setCustomerName] = useState('');
-  const [customerPhone, setCustomerPhone] = useState('');
+  const [customerName, setCustomerName] = useState(location.state?.customerName || '');
+  const [customerPhone, setCustomerPhone] = useState(location.state?.customerPhone || '');
+  const [servedBy, setServedBy] = useState(location.state?.servedBy || '');
   const [paymentMethod, setPaymentMethod] = useState('Cash');
   const [mpesaPhone, setMpesaPhone] = useState('');
   const [notes, setNotes] = useState('');
@@ -77,8 +79,14 @@ export default function POSSalePage() {
       setError('Your cart is empty. Add at least one service first.');
       return;
     }
+    const name = customerName.trim();
     const phone = customerPhone.replace(/[\s-]/g, '');
-    if (phone && !/^[+\d][\d\s-]{5,29}$/.test(customerPhone)) {
+    const attendant = servedBy.trim();
+    if (!name || !phone || !attendant) {
+      setError('Customer name, phone number, and Served By are required before completing the sale.');
+      return;
+    }
+    if (!/^[+\d][\d\s-]{5,29}$/.test(customerPhone)) {
       setError('That phone number does not look valid.');
       return;
     }
@@ -88,19 +96,16 @@ export default function POSSalePage() {
     }
     setBusy(true);
     try {
-      const name = customerName.trim() || 'Walk-in';
       // Grow the local customer cache (separate queued operation).
-      if (phone) {
-        const known = customers.some((c) => c.phone === phone);
-        if (!known) {
-          try {
-            await createCustomerOffline({ name, phone });
-          } catch {
-            // Non-fatal: the order itself is what must persist.
-          }
+      const known = customers.some((c) => c.phone === phone);
+      if (!known) {
+        try {
+          await createCustomerOffline({ name, phone, servedBy: attendant });
+        } catch {
+          // Non-fatal: the order itself is what must persist.
         }
       }
-      const order = buildOfflineOrder({ cart, customerName: name, paymentMethod, notes: notes.trim() });
+      const order = buildOfflineOrder({ cart, customerName: name, customerPhone: phone, servedBy: attendant, paymentMethod, notes: notes.trim() });
       const payment = {
         orderId: null, // linked to the local order row below
         amount: total,
@@ -130,11 +135,17 @@ export default function POSSalePage() {
         phone,
         estimatedTotal: total,
         paymentMethod,
+        servedBy: attendant,
+        paymentStatus: order.paymentStatus,
+        paidAmount: order.paymentStatus === 'paid' ? total : 0,
         status: order.status,
         items: order.items.map((i) => ({
           service: i.service,
           kg: i.kg,
           unitPrice: i.unitPrice,
+          originalSubtotal: i.originalSubtotal,
+          discountPercent: i.discountPercent,
+          discountAmount: i.discountAmount,
           subtotal: i.subtotal,
         })),
         createdAt: order.createdAt,
@@ -158,6 +169,7 @@ export default function POSSalePage() {
         total,
         count,
         customer: name,
+        servedBy: attendant,
         paymentMethod,
         status: order.status,
         items: receiptSource.items,
@@ -188,6 +200,7 @@ export default function POSSalePage() {
       name: completed.customer,
       estimatedTotal: completed.total,
       paymentMethod: completed.paymentMethod,
+      servedBy: completed.servedBy,
       status: completed.status,
       items: completed.items || [],
       createdAt: new Date().toISOString(),
@@ -233,6 +246,7 @@ export default function POSSalePage() {
                 setCompleted(null);
                 setCustomerName('');
                 setCustomerPhone('');
+                setServedBy('');
                 setMpesaPhone('');
                 setNotes('');
               }}
@@ -252,11 +266,20 @@ export default function POSSalePage() {
           <p className="eyebrow">Point of sale</p>
           <h2>New sale.</h2>
         </div>
-        {offline && (
-          <p className="sale-notice offline" role="status">
-            <AlertCircle size={16} /> You are offline. Sales are saved on this device and will sync automatically.
-          </p>
-        )}
+        <div className="sale-header-actions">
+          <button
+            className="sale-manage-services"
+            type="button"
+            onClick={() => navigate('/dashboard', { state: { tab: 'pricing' } })}
+          >
+            <Settings2 size={17} /> Manage Services &amp; Prices
+          </button>
+          {offline && (
+            <p className="sale-notice offline" role="status">
+              <AlertCircle size={16} /> You are offline. Sales are saved on this device and will sync automatically.
+            </p>
+          )}
+        </div>
       </header>
 
       {error && (
@@ -345,8 +368,41 @@ export default function POSSalePage() {
                         +
                       </button>
                     </div>
+                    <div className="cart-discount-controls">
+                      <label>
+                        Discount allowed
+                        <select
+                          aria-label={`Discount allowed for ${l.service}`}
+                          value={l.discountAllowed ? 'yes' : 'no'}
+                          onChange={(event) => setCart((p) => setLineDiscount(p, l.key, event.target.value === 'yes', event.target.value === 'yes' ? l.discountPercent : 0))}
+                        >
+                          <option value="no">No</option>
+                          <option value="yes">Yes</option>
+                        </select>
+                      </label>
+                      {l.discountAllowed && (
+                        <label>
+                          Discount %
+                          <input
+                            aria-label={`Discount percentage for ${l.service}`}
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="0.01"
+                            value={l.discountPercent}
+                            onChange={(event) => setCart((p) => setLineDiscount(p, l.key, true, event.target.value))}
+                          />
+                        </label>
+                      )}
+                    </div>
+                    <div className="cart-line-price-detail">
+                      <span>Original: KSh {(l.originalSubtotal ?? l.unitPrice * l.qty).toLocaleString()}</span>
+                      {l.discountAllowed && l.discountPercent > 0 && (
+                        <span>{l.discountPercent}% off · KSh {l.discountAmount.toLocaleString()} saved</span>
+                      )}
+                    </div>
                   </div>
-                  <span className="line-total">KSh {l.subtotal.toLocaleString()}</span>
+                  <span className="line-total">Final: KSh {l.subtotal.toLocaleString()}</span>
                   <button type="button" className="remove-btn" onClick={() => setCart((p) => removeFromCart(p, l.key))}>
                     <Trash2 size={14} /> Remove
                   </button>
@@ -370,6 +426,7 @@ export default function POSSalePage() {
               value={customerName}
               onChange={(e) => setCustomerName(e.target.value)}
               autoComplete="off"
+              required
             />
           </div>
           <div className="sale-field">
@@ -381,6 +438,7 @@ export default function POSSalePage() {
               value={customerPhone}
               onChange={(e) => setCustomerPhone(e.target.value)}
               autoComplete="off"
+              required
             />
             {matchingCustomers.length > 0 && (
               <div role="listbox" aria-label="Matching customers">
@@ -395,6 +453,7 @@ export default function POSSalePage() {
                     onClick={() => {
                       setCustomerName(c.name || '');
                       setCustomerPhone(c.phone || '');
+                      setServedBy(c.servedBy || '');
                     }}
                   >
                     {c.name} · {c.phone}
@@ -404,10 +463,23 @@ export default function POSSalePage() {
             )}
           </div>
           <div className="sale-field">
+            <label htmlFor="sale-served-by">Served by</label>
+            <input
+              id="sale-served-by"
+              type="text"
+              placeholder="Staff name"
+              value={servedBy}
+              onChange={(e) => setServedBy(e.target.value)}
+              autoComplete="name"
+              required
+            />
+          </div>
+          <div className="sale-field">
             <label htmlFor="sale-payment">Payment method</label>
             <select id="sale-payment" value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}>
               <option value="Cash">Cash{offline ? ' (works offline)' : ''}</option>
               <option value="M-Pesa">M-Pesa{offline ? ' (queued, confirmed when online)' : ''}</option>
+              <option value="Unpaid">Unpaid</option>
             </select>
           </div>
           {paymentMethod === 'M-Pesa' && (

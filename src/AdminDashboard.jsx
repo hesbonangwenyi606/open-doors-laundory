@@ -1,6 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from './AuthContext.jsx';
+import { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   ArrowUpRight,
   Check,
@@ -13,23 +12,45 @@ import {
   X,
 } from 'lucide-react';
 
-const defaultSteps = ['We collect', 'We sort', 'We clean', 'We finish', 'We deliver'];
+function normalizePriceGroups(groups = []) {
+  return groups.map((group) => ({
+    ...group,
+    items: (group.items || []).map((item) => (
+      Array.isArray(item)
+        ? [String(item[0] ?? ''), String(item[1] ?? '')]
+        : [String(item.name ?? item.serviceName ?? ''), String(item.price ?? item.unitPrice ?? '')]
+    )),
+  }));
+}
 
 export default function AdminDashboard() {
-  const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
   const [message, setMessage] = useState('');
-  const [tab, setTab] = useState('overview');
+  const [tab] = useState(location.state?.tab === 'pricing' ? 'pricing' : 'overview');
   const [loadError, setLoadError] = useState('');
+  const [newServiceGroup, setNewServiceGroup] = useState(null);
+  const [newServiceName, setNewServiceName] = useState('');
+  const [newServicePrice, setNewServicePrice] = useState('');
+  const [confirmingNewService, setConfirmingNewService] = useState(false);
+  const [deletePriceTarget, setDeletePriceTarget] = useState(null);
+  const [savingPriceAction, setSavingPriceAction] = useState(false);
 
   async function load() {
     setLoadError('');
     try {
       const response = await fetch('/api/admin/dashboard');
       if (response.ok) {
-        setData(await response.json());
+        const result = await response.json();
+        setData({
+          ...result,
+          settings: {
+            ...result.settings,
+            priceGroups: normalizePriceGroups(result.settings?.priceGroups),
+          },
+        });
       } else if (response.status === 401) {
         // Session genuinely expired — re-authenticate.
         navigate('/login');
@@ -77,6 +98,70 @@ export default function AdminDashboard() {
       response.ok ? 'Website settings saved successfully.' : (await response.json()).error
     );
     if (response.ok) load();
+  }
+
+  async function savePriceGroups(priceGroups, successMessage) {
+    setSavingPriceAction(true);
+    setMessage('');
+    try {
+      const response = await fetch('/api/admin/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...data.settings, priceGroups }),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        setMessage(result.error || 'Could not save pricing changes.');
+        return false;
+      }
+      setData((current) => ({
+        ...current,
+        settings: {
+          ...current.settings,
+          priceGroups: normalizePriceGroups(result.priceGroups || priceGroups),
+        },
+      }));
+      setMessage(successMessage);
+      return true;
+    } catch {
+      setMessage('Could not save pricing changes. Check the server connection and try again.');
+      return false;
+    } finally {
+      setSavingPriceAction(false);
+    }
+  }
+
+  function openNewServiceForm(groupIndex) {
+    setNewServiceGroup(groupIndex);
+    setNewServiceName('');
+    setNewServicePrice('');
+    setConfirmingNewService(false);
+  }
+
+  async function confirmAddNewService() {
+    if (newServiceGroup == null) return;
+    const nextGroups = data.settings.priceGroups.map((group, index) => (
+      index === newServiceGroup
+        ? { ...group, items: [...group.items, [newServiceName.trim(), String(Number(newServicePrice))]] }
+        : group
+    ));
+    const saved = await savePriceGroups(nextGroups, 'New service added.');
+    if (saved) {
+      setNewServiceGroup(null);
+      setConfirmingNewService(false);
+    }
+  }
+
+  async function confirmDeletePrice() {
+    if (!deletePriceTarget) return;
+    const { groupIndex, itemIndex } = deletePriceTarget;
+    const nextGroups = data.settings.priceGroups.map((group, index) => (
+      index === groupIndex
+        ? { ...group, items: group.items.filter((_, item) => item !== itemIndex) }
+        : group
+    ));
+    const saved = await savePriceGroups(nextGroups, 'Service deleted.');
+    if (saved) setDeletePriceTarget(null);
   }
 
   async function status(id, status) {
@@ -248,50 +333,61 @@ export default function AdminDashboard() {
                   className="group-name"
                   value={group.t}
                   onChange={(e) => update(['settings', 'priceGroups', g, 't'], e.target.value)}
+                  aria-label={`Service category ${g + 1}`}
                 />
+                <div className="price-editor-labels" aria-hidden="true">
+                  <span>Service</span>
+                  <span>Price (KSh)</span>
+                  <span>Save</span>
+                  <span>Delete</span>
+                </div>
                 {group.items.map((item, i) => (
-                  <div key={i}>
+                  <div className="price-editor-row" key={`${g}-${i}`}>
                     <input
                       value={item[0]}
                       placeholder="Service or item"
+                      aria-label={`Service name in ${group.t}, row ${i + 1}`}
                       onChange={(e) =>
                         update(['settings', 'priceGroups', g, 'items', i, 0], e.target.value)
                       }
                     />
                     <input
                       value={item[1]}
-                      placeholder="Price"
+                      type="number"
+                      min="0"
+                      step="1"
+                      placeholder="0"
+                      aria-label={`Price in KSh for ${item[0] || `service ${i + 1}`}`}
                       onChange={(e) =>
                         update(['settings', 'priceGroups', g, 'items', i, 1], e.target.value)
                       }
                     />
                     <button
-                      className="remove-price"
+                      className="save-price-button"
                       type="button"
-                      disabled={group.items.length <= 1}
-                      onClick={() =>
-                        update(
-                          ['settings', 'priceGroups', g, 'items'],
-                          group.items.filter((_, index) => index !== i)
-                        )
-                      }
-                      aria-label={`Remove ${item[0]}`}
+                      disabled={savingPriceAction}
+                      onClick={() => savePriceGroups(data.settings.priceGroups, 'Pricing updated.')}
+                      aria-label={`Save ${item[0]}`}
                     >
-                      <X size={16} />
+                      <Check size={15} /> Save
+                    </button>
+                    <button
+                      className="delete-price-button"
+                      type="button"
+                      disabled={group.items.length <= 1 || savingPriceAction}
+                      onClick={() => setDeletePriceTarget({ groupIndex: g, itemIndex: i, name: item[0] })}
+                      aria-label={`Delete ${item[0]}`}
+                    >
+                      <Trash2 size={15} /> Delete
                     </button>
                   </div>
                 ))}
                 <button
                   className="add-price"
                   type="button"
-                  onClick={() =>
-                    update(
-                      ['settings', 'priceGroups', g, 'items'],
-                      [...group.items, ['New item', '0']]
-                    )
-                  }
+                  onClick={() => openNewServiceForm(g)}
                 >
-                  + Add price
+                  + Add New Service
                 </button>
               </fieldset>
             ))}
@@ -339,6 +435,55 @@ export default function AdminDashboard() {
           </form>
         )}
       </div>
+      {newServiceGroup != null && (
+        <div className="price-dialog-backdrop">
+          <section className="price-dialog" role="dialog" aria-modal="true" aria-labelledby="new-service-dialog-title">
+            {confirmingNewService ? (
+              <>
+                <h2 id="new-service-dialog-title">Confirm new service</h2>
+                <p>Are you sure you want to add <strong>{newServiceName}</strong> at <strong>KSh {Number(newServicePrice).toLocaleString()}</strong>?</p>
+                <div className="price-dialog-actions">
+                  <button className="price-dialog-secondary" type="button" onClick={() => setNewServiceGroup(null)} disabled={savingPriceAction}>Cancel</button>
+                  <button className="price-dialog-primary" type="button" onClick={confirmAddNewService} disabled={savingPriceAction}>
+                    {savingPriceAction ? 'Saving…' : 'Yes, Add Service'}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <form onSubmit={(event) => { event.preventDefault(); setConfirmingNewService(true); }}>
+                <h2 id="new-service-dialog-title">Add New Service</h2>
+                <p>Enter the service name and price before saving.</p>
+                <label className="price-dialog-field">
+                  Service name
+                  <input autoFocus value={newServiceName} onChange={(event) => setNewServiceName(event.target.value)} required maxLength="100" />
+                </label>
+                <label className="price-dialog-field">
+                  Price (KSh)
+                  <input type="number" min="1" step="1" value={newServicePrice} onChange={(event) => setNewServicePrice(event.target.value)} required />
+                </label>
+                <div className="price-dialog-actions">
+                  <button className="price-dialog-secondary" type="button" onClick={() => setNewServiceGroup(null)}>Cancel</button>
+                  <button className="price-dialog-primary" type="submit">Review Service</button>
+                </div>
+              </form>
+            )}
+          </section>
+        </div>
+      )}
+      {deletePriceTarget && (
+        <div className="price-dialog-backdrop">
+          <section className="price-dialog" role="alertdialog" aria-modal="true" aria-labelledby="delete-service-dialog-title">
+            <h2 id="delete-service-dialog-title">Delete service?</h2>
+            <p>Are you sure you want to delete <strong>{deletePriceTarget.name}</strong>? This will remove it from the service list and save the change.</p>
+            <div className="price-dialog-actions">
+              <button className="price-dialog-secondary" type="button" onClick={() => setDeletePriceTarget(null)} disabled={savingPriceAction}>Cancel</button>
+              <button className="price-dialog-danger" type="button" onClick={confirmDeletePrice} disabled={savingPriceAction}>
+                {savingPriceAction ? 'Deleting…' : 'Yes, Delete'}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   );
 }

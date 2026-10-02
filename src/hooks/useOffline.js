@@ -103,6 +103,16 @@ export function useOffline() {
     return id;
   }, []);
 
+  const deleteCustomerOffline = useCallback(async (customer) => {
+    const clientId = customer.clientId || `server_${customer.phone}`;
+    await enqueueSync('customer', clientId, 'delete', {
+      name: customer.name,
+      phone: customer.phone,
+    });
+    if (customer.id != null) await db.customers.delete(customer.id);
+    return true;
+  }, []);
+
   const createPaymentOffline = useCallback(async (payment) => {
     const clientId = `client_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
     const id = await addLocalPayment({ ...payment, clientId });
@@ -119,7 +129,7 @@ export function useOffline() {
 
   // Server-authoritative laundry statuses. Local-only 'pending' means
   // "created on device, not yet acknowledged" and is never sent upstream.
-  const ORDER_STATUSES = ['new', 'confirmed', 'completed', 'cancelled'];
+  const ORDER_STATUSES = ['new', 'received', 'confirmed', 'washing', 'drying', 'ironing', 'ready_for_collection', 'completed', 'cancelled'];
 
   const updateOrderStatusOffline = useCallback(async (orderId, status) => {
     if (!ORDER_STATUSES.includes(status)) {
@@ -146,6 +156,7 @@ export function useOffline() {
     refreshCatalog,
     createOrderOffline,
     createCustomerOffline,
+    deleteCustomerOffline,
     createPaymentOffline,
     updateOrderStatusOffline,
     generateOfflineReceipt,
