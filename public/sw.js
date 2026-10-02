@@ -1,4 +1,4 @@
-const CACHE_NAME = 'open-doors-v2';
+const CACHE_NAME = 'open-doors-v3';
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -52,6 +52,23 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
+
+  // NEVER intercept the Vite dev server: its /src/*, HMR (/@vite/*) and
+  // unhashed module URLs must always come fresh from the network, otherwise
+  // edits never appear without a hard refresh.
+  const isDevHost =
+    url.hostname === 'localhost' ||
+    url.hostname === '127.0.0.1' ||
+    url.hostname === '0.0.0.0' ||
+    url.port === '5173';
+  const isDevAsset =
+    url.pathname.startsWith('/src/') ||
+    url.pathname.startsWith('/@vite') ||
+    url.pathname.startsWith('/@react-refresh') ||
+    url.pathname.startsWith('/node_modules/');
+  if (isDevHost || isDevAsset) {
+    return;
+  }
 
   // Non-GET API traffic (login, bookings, sync) is the app's job: the
   // Dexie outbox in the page owns offline queueing with idempotency keys,
